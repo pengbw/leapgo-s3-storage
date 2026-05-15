@@ -1,6 +1,8 @@
 # leapgo-s3-storage
 
-S3 兼容对象存储 Python SDK，支持 RustFS / MinIO / 阿里云 OSS / AWS S3 等所有 S3 协议存储。
+**它是做什么的：** 一个基于 `boto3` 的 S3 兼容对象存储 Python SDK，封装了上传、下载、删除、列表、预签名链接、增量同步等常用操作，开箱即用。
+
+**支持哪些存储：** RustFS / MinIO / 阿里云 OSS / AWS S3 等所有兼容 S3 协议的对象存储服务。
 
 ## 安装
 
