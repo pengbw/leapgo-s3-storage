@@ -42,8 +42,8 @@ class S3StorageClient:
                          Reads from env var S3_ENDPOINT if not provided.
             access_key:   Access key ID. Reads from S3_ACCESS_KEY env var if not provided.
             secret_key:   Secret access key. Reads from S3_SECRET_KEY env var if not provided.
-            region:       AWS region, defaults to us-east-1.
-            bucket:        Default bucket name.
+            region:       AWS region, defaults to us-east-1. Reads S3_REGION env var if not provided.
+            bucket:        Default bucket name. Reads S3_BUCKET env var if not provided.
             bucket_prefix: Path prefix prepended to all keys, e.g. "dev/" — useful for
                           multi-environment isolation.
             timeout:       Per-operation timeout in seconds.
@@ -52,7 +52,7 @@ class S3StorageClient:
         self.endpoint = endpoint or os.getenv("S3_ENDPOINT")
         self.access_key = access_key or os.getenv("S3_ACCESS_KEY")
         self.secret_key = secret_key or os.getenv("S3_SECRET_KEY")
-        self.region = region
+        self.region = region or os.getenv("S3_REGION", "us-east-1")
         self.default_bucket = bucket or os.getenv("S3_BUCKET", "leapgo")
         self.bucket_prefix = bucket_prefix
         self.timeout = timeout

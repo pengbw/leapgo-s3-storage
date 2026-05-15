@@ -60,6 +60,7 @@ client.delete_file("remote/file.txt")
 | `S3_ENDPOINT` | S3 endpoint URL | - |
 | `S3_ACCESS_KEY` | Access key ID | - |
 | `S3_SECRET_KEY` | Secret access key | - |
+| `S3_REGION` | AWS region | `us-east-1` |
 | `S3_BUCKET` | Default bucket name | `leapgo` |
 
 ```python
