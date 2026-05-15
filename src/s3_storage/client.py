@@ -1,7 +1,4 @@
-"""
-S3StorageClient - S3兼容存储客户端
-支持 RustFS / MinIO / 阿里云 OSS / AWS S3 等
-"""
+"""S3StorageClient - Unified S3-compatible storage client."""
 
 import os
 import hashlib
@@ -20,33 +17,12 @@ from s3_storage.exceptions import (
     UploadError,
     DownloadError,
 )
+
 from s3_storage.utils import normalize_key, get_file_key, guess_content_type
 
 
 class S3StorageClient:
-    """
-    S3兼容存储统一客户端
-
-    使用示例:
-        from s3_storage import S3StorageClient
-
-        # 初始化（支持多节点）
-        client = S3StorageClient(
-            endpoint="http://localhost:9000",
-            access_key="your_access_key",
-            secret_key="your_secret_key",
-            bucket="mybucket",
-        )
-
-        # 上传
-        client.upload_file("/local/file.txt", "remote/file.txt")
-
-        # 下载
-        client.download_file("remote/file.txt", "/local/file.txt")
-
-        # 列出文件
-        files = client.list_files(prefix="folder/")
-    """
+    """Unified client for S3-compatible object storage (RustFS / MinIO / OSS / AWS S3)."""
 
     def __init__(
         self,
@@ -59,21 +35,19 @@ class S3StorageClient:
         timeout: int = 30,
         connect_timeout: int = 10,
     ):
-        """
-        初始化S3客户端
+        """Initialize the S3 client.
 
         Args:
-            endpoint:   S3服务端点，如 http://localhost:9000
-                       从环境变量 S3_ENDPOINT 读取
-            access_key: AccessKey
-                       从环境变量 S3_ACCESS_KEY 读取
-            secret_key: SecretKey
-                       从环境变量 S3_SECRET_KEY 读取
-            region:     区域，默认 us-east-1
-            bucket:     默认桶名
-            bucket_prefix: 桶内路径前缀，如 "dev/"（自动添加到所有key前）
-            timeout:       单次操作超时（秒）
-            connect_timeout: 连接超时（秒）
+            endpoint:     S3 endpoint URL, e.g. http://localhost:9000
+                         Reads from env var S3_ENDPOINT if not provided.
+            access_key:   Access key ID. Reads from S3_ACCESS_KEY env var if not provided.
+            secret_key:   Secret access key. Reads from S3_SECRET_KEY env var if not provided.
+            region:       AWS region, defaults to us-east-1.
+            bucket:        Default bucket name.
+            bucket_prefix: Path prefix prepended to all keys, e.g. "dev/" — useful for
+                          multi-environment isolation.
+            timeout:       Per-operation timeout in seconds.
+            connect_timeout: Connection timeout in seconds.
         """
         self.endpoint = endpoint or os.getenv("S3_ENDPOINT")
         self.access_key = access_key or os.getenv("S3_ACCESS_KEY")
@@ -86,14 +60,14 @@ class S3StorageClient:
 
         if not self.access_key or not self.secret_key:
             raise CredentialError(
-                "缺少凭据：access_key 和 secret_key 不能为空，"
-                "可传参数或设置环境变量 S3_ACCESS_KEY / S3_SECRET_KEY"
+                "access_key and secret_key are required. "
+                "Pass them as arguments or set S3_ACCESS_KEY / S3_SECRET_KEY env vars."
             )
 
         self._client = self._create_client()
 
     def _create_client(self):
-        """创建boto3客户端"""
+        """Create and return a boto3 S3 client."""
         config = Config(
             signature_version="s3v4",
             connect_timeout=self.connect_timeout,
@@ -110,31 +84,31 @@ class S3StorageClient:
         )
 
     def _full_key(self, key: str) -> str:
-        """拼接bucket_prefix后的完整key"""
+        """Return the full key after applying bucket_prefix."""
         return normalize_key(f"{self.bucket_prefix}/{key}").lstrip("/")
 
-    # ── 桶操作 ────────────────────────────────────────────────
+    # ── Bucket operations ──────────────────────────────────────────────────────
 
     def list_buckets(self) -> List[str]:
-        """列出所有桶"""
+        """List all bucket names."""
         try:
             resp = self._client.list_buckets()
             return [b["Name"] for b in resp.get("Buckets", [])]
         except NoCredentialsError as e:
-            raise CredentialError(f"认证失败: {e}") from e
+            raise CredentialError(f"Authentication failed: {e}") from e
         except ClientError as e:
-            raise S3StorageError(f"列出桶失败: {e}") from e
+            raise S3StorageError(f"Failed to list buckets: {e}") from e
 
     def bucket_exists(self, bucket: Optional[str] = None) -> bool:
-        """检查桶是否存在"""
+        """Check whether a bucket exists."""
         bucket = bucket or self.default_bucket
         try:
             self._client.head_bucket(Bucket=bucket)
             return True
-        except ClientError as e:
+        except ClientError:
             return False
 
-    # ── 文件操作 ────────────────────────────────────────────────
+    # ── Upload ────────────────────────────────────────────────────────────────
 
     def upload_file(
         self,
@@ -144,24 +118,23 @@ class S3StorageClient:
         content_type: Optional[str] = None,
         extra_args: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """
-        上传本地文件到S3
+        """Upload a local file to S3.
 
         Args:
-            local_path:    本地文件路径
-            remote_key:    存储到S3的key（不含bucket_prefix部分）
-            bucket:        桶名，默认使用default_bucket
-            content_type:  MIME类型，默认自动推断
-            extra_args:    额外参数（如 Metadata, CacheControl 等）
+            local_path:    Path to the local file.
+            remote_key:    Key under which to store the file in S3 (bucket_prefix is applied).
+            bucket:        Bucket name; defaults to default_bucket.
+            content_type:  MIME type; auto-detected from extension if omitted.
+            extra_args:    Additional boto3 ExtraArgs (Metadata, CacheControl, etc.).
 
         Returns:
-            {"ETag": "...", "VersionId": "...", "key": "..."}
+            {"ETag": "...", "key": "...", "bucket": "...", "size": N, "md5": "...", "url": "..."}
         """
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
 
         if not os.path.exists(local_path):
-            raise FileNotFoundError(f"本地文件不存在: {local_path}")
+            raise FileNotFoundError(f"Local file not found: {local_path}")
 
         content_type = content_type or guess_content_type(local_path)
         args = {"ContentType": content_type}
@@ -171,7 +144,6 @@ class S3StorageClient:
         try:
             self._client.upload_file(local_path, bucket, key, ExtraArgs=args)
             file_size = os.path.getsize(local_path)
-            # 计算MD5
             md5 = hashlib.md5(open(local_path, "rb").read()).hexdigest()
             return {
                 "key": key,
@@ -181,7 +153,7 @@ class S3StorageClient:
                 "url": f"{self.endpoint}/{bucket}/{key}",
             }
         except ClientError as e:
-            raise UploadError(f"上传失败 [{key}]: {e}") from e
+            raise UploadError(f"Upload failed [{key}]: {e}") from e
 
     def upload_bytes(
         self,
@@ -190,7 +162,7 @@ class S3StorageClient:
         bucket: Optional[str] = None,
         content_type: str = "application/octet-stream",
     ) -> Dict[str, Any]:
-        """上传字节数据到S3"""
+        """Upload raw bytes to S3."""
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
         try:
@@ -204,7 +176,9 @@ class S3StorageClient:
                 "ETag": resp.get("ETag"),
             }
         except ClientError as e:
-            raise UploadError(f"上传失败 [{key}]: {e}") from e
+            raise UploadError(f"Upload failed [{key}]: {e}") from e
+
+    # ── Download ─────────────────────────────────────────────────────────────
 
     def download_file(
         self,
@@ -212,21 +186,19 @@ class S3StorageClient:
         local_path: str,
         bucket: Optional[str] = None,
     ) -> str:
-        """
-        从S3下载文件到本地
+        """Download a file from S3 to local disk.
 
         Args:
-            remote_key:  S3中的key
-            local_path:  本地保存路径（包含文件名）
-            bucket:      桶名
+            remote_key:  Key of the file in S3.
+            local_path:  Local destination path (including filename).
+            bucket:      Bucket name; defaults to default_bucket.
 
         Returns:
-            本地文件路径
+            The local_path that was written.
         """
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
 
-        # 确保本地目录存在
         Path(local_path).parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -235,21 +207,23 @@ class S3StorageClient:
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code in ("404", "NoSuchKey"):
-                raise S3FileNotFoundError(f"S3文件不存在: {key}") from e
-            raise DownloadError(f"下载失败 [{key}]: {e}") from e
+                raise S3FileNotFoundError(f"File not found in S3: {key}") from e
+            raise DownloadError(f"Download failed [{key}]: {e}") from e
+
+    # ── Delete ───────────────────────────────────────────────────────────────
 
     def delete_file(self, remote_key: str, bucket: Optional[str] = None) -> bool:
-        """删除S3中的单个文件"""
+        """Delete a single file from S3."""
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
         try:
             self._client.delete_object(Bucket=bucket, Key=key)
             return True
         except ClientError as e:
-            raise S3StorageError(f"删除失败 [{key}]: {e}") from e
+            raise S3StorageError(f"Delete failed [{key}]: {e}") from e
 
     def delete_files(self, remote_keys: List[str], bucket: Optional[str] = None) -> int:
-        """批量删除文件，返回删除数量"""
+        """Batch delete multiple files. Returns the count of deleted files."""
         bucket = bucket or self.default_bucket
         if not remote_keys:
             return 0
@@ -261,9 +235,9 @@ class S3StorageClient:
             deleted = len(resp.get("Deleted", []))
             return deleted
         except ClientError as e:
-            raise S3StorageError(f"批量删除失败: {e}") from e
+            raise S3StorageError(f"Batch delete failed: {e}") from e
 
-    # ── 文件列表 ────────────────────────────────────────────────
+    # ── List ─────────────────────────────────────────────────────────────────
 
     def list_files(
         self,
@@ -272,17 +246,16 @@ class S3StorageClient:
         max_keys: int = 1000,
         include_size: bool = True,
     ) -> List[Dict[str, Any]]:
-        """
-        列出桶内文件
+        """List files in a bucket.
 
         Args:
-            prefix:     key前缀过滤
-            bucket:     桶名
-            max_keys:  最大返回数量
-            include_size: 是否包含文件大小
+            prefix:       Filter keys by this prefix.
+            bucket:        Bucket name; defaults to default_bucket.
+            max_keys:     Maximum number of keys to return.
+            include_size: Whether to include size and last_modified in results.
 
         Returns:
-            [{"key": "...", "size": 1234, "last_modified": "..."}, ...]
+            [{"key": "...", "size": N, "last_modified": "...", "etag": "..."}, ...]
         """
         bucket = bucket or self.default_bucket
         full_prefix = normalize_key(f"{self.bucket_prefix}/{prefix}").lstrip("/")
@@ -305,10 +278,10 @@ class S3StorageClient:
             else:
                 return [{"key": obj["Key"]} for obj in contents]
         except ClientError as e:
-            raise S3StorageError(f"列出文件失败: {e}") from e
+            raise S3StorageError(f"List files failed: {e}") from e
 
     def file_exists(self, remote_key: str, bucket: Optional[str] = None) -> bool:
-        """检查文件是否存在"""
+        """Check whether a file exists in S3."""
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
         try:
@@ -318,7 +291,7 @@ class S3StorageClient:
             return False
 
     def get_file_info(self, remote_key: str, bucket: Optional[str] = None) -> Dict[str, Any]:
-        """获取文件元信息（大小、最后修改时间、ETag等）"""
+        """Get metadata for a file (size, MIME type, ETag, last_modified, etc.)."""
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
         try:
@@ -334,27 +307,26 @@ class S3StorageClient:
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code in ("404", "NoSuchKey"):
-                raise S3FileNotFoundError(f"S3文件不存在: {key}") from e
-            raise S3StorageError(f"获取文件信息失败 [{key}]: {e}") from e
+                raise S3FileNotFoundError(f"File not found in S3: {key}") from e
+            raise S3StorageError(f"Get file info failed [{key}]: {e}") from e
 
-    # ── 预签名链接 ──────────────────────────────────────────────
+    # ── Presigned URLs ───────────────────────────────────────────────────────
 
     def generate_presigned_url(
         self,
         remote_key: str,
         bucket: Optional[str] = None,
-        expires_in: int = 604800,  # 7天
+        expires_in: int = 604800,  # 7 days
     ) -> str:
-        """
-        生成预签名访问URL（临时授权链接）
+        """Generate a presigned URL for reading a file (temporary public access).
 
         Args:
-            remote_key:  S3中的key
-            bucket:      桶名
-            expires_in:  有效期（秒），默认7天
+            remote_key:  S3 key.
+            bucket:      Bucket name; defaults to default_bucket.
+            expires_in:  Validity period in seconds; defaults to 7 days.
 
         Returns:
-            预签名URL
+            The presigned URL string.
         """
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
@@ -366,26 +338,22 @@ class S3StorageClient:
             )
             return url
         except ClientError as e:
-            raise S3StorageError(f"生成预签名URL失败 [{key}]: {e}") from e
+            raise S3StorageError(f"Generate presigned URL failed [{key}]: {e}") from e
 
     def generate_upload_presigned_url(
         self,
         remote_key: str,
         bucket: Optional[str] = None,
-        expires_in: int = 3600,
+        expires_in: int = 3600,  # 1 hour
         content_type: str = "application/octet-stream",
     ) -> str:
-        """
-        生成预签名上传URL（用于客户端直传S3）
+        """Generate a presigned URL for uploading a file directly from the client.
 
         Args:
-            remote_key:   S3中的key
-            bucket:       桶名
-            expires_in:  有效期（秒），默认1小时
-            content_type: 上传文件的MIME类型
-
-        Returns:
-            预签名上传URL
+            remote_key:    S3 key.
+            bucket:        Bucket name; defaults to default_bucket.
+            expires_in:   Validity period in seconds; defaults to 1 hour.
+            content_type: Expected MIME type of the uploaded content.
         """
         bucket = bucket or self.default_bucket
         key = self._full_key(remote_key)
@@ -397,9 +365,9 @@ class S3StorageClient:
             )
             return url
         except ClientError as e:
-            raise S3StorageError(f"生成上传URL失败 [{key}]: {e}") from e
+            raise S3StorageError(f"Generate upload URL failed [{key}]: {e}") from e
 
-    # ── 复制 / 移动 ─────────────────────────────────────────────
+    # ── Copy ────────────────────────────────────────────────────────────────
 
     def copy_file(
         self,
@@ -408,7 +376,7 @@ class S3StorageClient:
         src_bucket: Optional[str] = None,
         dst_bucket: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """在S3内复制文件"""
+        """Copy a file within S3 (same or cross bucket)."""
         src_bucket = src_bucket or self.default_bucket
         dst_bucket = dst_bucket or self.default_bucket
         src_key = self._full_key(src_key)
@@ -420,9 +388,9 @@ class S3StorageClient:
             )
             return {"key": dst_key, "bucket": dst_bucket, "etag": resp.get("ETag")}
         except ClientError as e:
-            raise S3StorageError(f"复制失败 [{src_key}] -> [{dst_key}]: {e}") from e
+            raise S3StorageError(f"Copy failed [{src_key}] -> [{dst_key}]: {e}") from e
 
-    # ── 同步 ─────────────────────────────────────────────────
+    # ── Sync ────────────────────────────────────────────────────────────────
 
     def sync_upload(
         self,
@@ -431,17 +399,16 @@ class S3StorageClient:
         bucket: Optional[str] = None,
         pattern: str = "**/*",
     ) -> Dict[str, Any]:
-        """
-        同步本地目录到S3（只上传新文件/变更文件）
+        """Upload a local directory to S3, skipping files that already exist with the same size.
 
         Args:
-            local_dir:     本地目录路径
-            remote_prefix: S3中的目标前缀
-            bucket:        桶名
-            pattern:       文件匹配模式，默认 **/*（包含子目录）
+            local_dir:     Path to the local directory.
+            remote_prefix: Target prefix in S3.
+            bucket:        Bucket name; defaults to default_bucket.
+            pattern:       Glob pattern for matching files; defaults to **/* (all subdirs).
 
         Returns:
-            {"uploaded": N, "skipped": N, "failed": N, "files": [...]}
+            {"uploaded": N, "skipped": N, "failed": N, "files": {"uploaded": [...], "skipped": [...], "failed": [...]}}
         """
         from glob import glob
 
@@ -456,7 +423,7 @@ class S3StorageClient:
             remote_key = f"{remote_prefix}/{rel_path}" if remote_prefix else str(rel_path)
             remote_key = remote_key.replace("\\", "/")
 
-            # 检查S3中是否已存在且大小一致
+            # Skip if file already exists in S3 with the same size
             if self.file_exists(remote_key, bucket):
                 s3_info = self.get_file_info(remote_key, bucket)
                 local_size = os.path.getsize(local_file)

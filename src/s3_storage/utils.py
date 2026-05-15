@@ -1,28 +1,24 @@
-"""工具函数"""
-import os
+"""Utility functions for S3 key normalization and content type detection."""
+
 import re
 from pathlib import Path
 from typing import Optional
 
 
 def normalize_key(key: str) -> str:
-    """
-    规范S3 key格式
-    - 移除开头的 /
-    - 移除多余的 /
-    """
+    """Normalize S3 key: strip leading/trailing slashes, collapse multiple slashes."""
     key = key.strip("/")
-    # 多个连续 / 合并为一个
     key = re.sub(r"/+", "/", key)
     return key
 
 
 def get_file_key(local_path: str, base_dir: Optional[str] = None) -> str:
-    """
-    根据本地路径生成S3 key
-    local_path: /data/user/file.txt
-    base_dir:   /data/user
-    return:     user/file.txt
+    """Derive S3 key from a local file path.
+
+    Args:
+        local_path: e.g. /data/user/file.txt
+        base_dir:   e.g. /data/user
+        returns:    user/file.txt
     """
     path = Path(local_path).resolve()
     if base_dir:
@@ -36,7 +32,7 @@ def get_file_key(local_path: str, base_dir: Optional[str] = None) -> str:
 
 
 def guess_content_type(file_path: str) -> str:
-    """根据文件扩展名猜测MIME类型"""
+    """Infer MIME type from file extension."""
     ext_map = {
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",

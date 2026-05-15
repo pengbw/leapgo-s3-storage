@@ -1,72 +1,71 @@
-# GitHub 推送工作流
+# GitHub Push Workflow
 
-## 前提
+Assumes local git is configured with username/email and `git remote` points to the target repo.
 
-本地 git 已配置用户名和邮箱，且 `git remote` 指向目标仓库。
-
-## 推送前检查
+## Standard Push
 
 ```bash
-# 1. 查看远程仓库地址
+# 1. Check remote URL
 git remote -v
 
-# 2. 查看待提交文件
+# 2. Check staged files
 git status
 
-# 3. 查看改动
+# 3. Review changes
 git diff --stat
+
+# 4. Stage all
+git add -A
+
+# 5. Commit
+git commit -m "commit message"
+
+# 6. Push
+git push
 ```
 
-## 首次推送
+## New Repo Setup
 
 ```bash
-git init                           # 初始化（已有 .git 则跳过）
-git add -A                         # 暂存所有文件
-git commit -m "Initial commit"     # 提交
-
-# 设置远程仓库（如果还没设置）
-git remote add origin git@github.com:pengbw/仓库名.git
-
-git branch -M main                 # 改名为 main
-git push -u origin main            # 推送并设置上游
+git remote add origin git@github.com:pengbw/repo-name.git
+git branch -M main
+git push -u origin main
 ```
 
-## 常见报错
+## Common Errors
 
 ### ERROR: Repository not found
 
-**原因**：远程仓库不存在，或 URL 错误。
+**Cause**: Remote repo does not exist or URL is wrong.
 
-**解法**：
-1. 先在 GitHub 网页手动创建空仓库
-2. 或提供 GitHub Token 用 API 自动创建：
-   ```bash
-   curl -X POST https://api.github.com/user/repos \
-     -H "Authorization: token ghp_xxx" \
-     -d '{"name":"仓库名","description":"..."}'
-   ```
+**Fix**:
+1. Create an empty repo on GitHub web UI first, or
+2. Create via API with a GitHub Token:
+```bash
+curl -X POST https://api.github.com/user/repos \
+  -H "Authorization: token ghp_xxx" \
+  -d '{"name":"repo-name","description":"..."}'
+```
 
 ### Permission denied (publickey)
 
-**原因**：没有 SSH 公钥，或 SSH 密钥路径不对。
+**Cause**: No SSH public key, or SSH key path is wrong.
 
-**解法**：
+**Fix**:
 ```bash
-# 检查 SSH 密钥
+# Check SSH key
 ls ~/.ssh/
 
-# 测试 GitHub 连接
+# Test GitHub connection
 ssh -T git@github.com
 
-# 如果用的是 HTTPS 而非 SSH，切换 URL
+# If using HTTPS instead of SSH, switch to SSH
 git remote set-url origin git@github.com:user/repo.git
 ```
 
 ### Updates were rejected because the remote contains work that you do not have
 
-**原因**：远程有本地没有的提交。
-
-**解法**（非强制推送，不要用 --force）：
+**Fix** (never use `--force`):
 ```bash
 git pull origin main --rebase
 git push origin main

@@ -1,31 +1,25 @@
-"""自定义异常"""
+"""Custom exception hierarchy for S3 storage operations."""
 
 
 class S3StorageError(Exception):
-    """S3存储操作基异常"""
-    pass
+    """Base exception for all S3 storage operations."""
 
 
 class CredentialError(S3StorageError):
-    """凭据错误（AccessKey/SecretKey无效）"""
-    pass
+    """Raised when access_key or secret_key is missing or invalid."""
 
 
 class BucketNotFoundError(S3StorageError):
-    """桶不存在"""
-    pass
+    """Raised when the specified bucket does not exist."""
 
 
 class FileNotFoundError(S3StorageError):
-    """文件不存在"""
-    pass
+    """Raised when the specified file/key does not exist in S3."""
 
 
 class UploadError(S3StorageError):
-    """上传失败"""
-    pass
+    """Raised when an upload operation fails."""
 
 
 class DownloadError(S3StorageError):
-    """下载失败"""
-    pass
+    """Raised when a download operation fails."""
