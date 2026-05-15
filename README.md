@@ -4,13 +4,35 @@ S3 兼容对象存储 Python SDK，支持 RustFS / MinIO / 阿里云 OSS / AWS S
 
 ## 安装
 
+### 方式一：pip 安装（推荐）
+
 ```bash
 pip install leapgo-s3-storage
+```
 
-# 或从源码安装
+### 方式二：从源码安装
+
+```bash
+# 克隆仓库
 git clone https://github.com/pengbw/s3-storage.git
 cd s3-storage
+
+# 安装（开发模式，可编辑）
 pip install -e .
+
+# 或安装包含开发依赖
+pip install -e ".[dev]"
+```
+
+### 方式三：直接引入（不安装）
+
+如果不想安装，只需要在项目根目录执行：
+
+```python
+import sys
+sys.path.insert(0, "/path/to/s3-storage/src")
+
+from s3_storage import S3StorageClient
 ```
 
 ## 快速开始
@@ -52,6 +74,17 @@ client.delete_file("remote/file.txt")
 | `S3_ACCESS_KEY` | AccessKey | - |
 | `S3_SECRET_KEY` | SecretKey | - |
 | `S3_BUCKET` | 默认桶名 | `leapgo` |
+
+也可以不传参，从环境变量读取：
+
+```python
+import os
+os.environ["S3_ENDPOINT"] = "http://localhost:9000"
+os.environ["S3_ACCESS_KEY"] = "your_key"
+os.environ["S3_SECRET_KEY"] = "your_secret"
+
+client = S3StorageClient()  # 自动从环境变量读取
+```
 
 ## 主要功能
 
