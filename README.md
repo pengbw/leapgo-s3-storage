@@ -14,8 +14,8 @@ pip install leapgo-s3-storage
 
 ```bash
 # 克隆仓库
-git clone https://github.com/pengbw/s3-storage.git
-cd s3-storage
+git clone https://github.com/pengbw/leapgo-s3-storage.git
+cd leapgo-s3-storage
 
 # 安装（开发模式，可编辑）
 pip install -e .

@@ -34,9 +34,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/pengbw/s3-storage"
-Documentation = "https://github.com/pengbw/s3-storage#readme"
-Repository = "https://github.com/pengbw/s3-storage"
+Homepage = "https://github.com/pengbw/leapgo-s3-storage"
+Documentation = "https://github.com/pengbw/leapgo-s3-storage#readme"
+Repository = "https://github.com/pengbw/leapgo-s3-storage"
 
 [tool.setuptools.packages.find]
 where = ["."]
