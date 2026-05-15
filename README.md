@@ -101,6 +101,25 @@ client = S3StorageClient()  # 自动从环境变量读取
 2. `generate_presigned_url` 的 `Params`：`Bucket` 填桶名，`Key` 填完整路径，两者不能混淆
 3. 建议业务层保持统一的 key 格式（无多余 `/`）
 
+## Hermes Agent Skill 分发
+
+本仓库同时包含 Hermes Agent Skill 文件，clone 后可给自己的 Hermes Agent 使用：
+
+```bash
+# 克隆仓库
+git clone https://github.com/pengbw/leapgo-s3-storage.git
+
+# 复制 skill 文件到 Hermes Agent 目录
+cp -r skill/ ~/.hermes/skills/productivity/s3-storage/
+
+# 重启 Hermes Agent 即可加载
+```
+
+Skill 包含：
+- `SKILL.md` — 主入口，含配置说明和常用操作示例
+- `references/python-package.md` — Python 包完整 API 文档
+- `references/gh-push-workflow.md` — GitHub 推送工作流
+
 ## License
 
 MIT
